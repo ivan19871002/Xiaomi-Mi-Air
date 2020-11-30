@@ -16,6 +16,14 @@
 			</dict>
 			<dict>
 				<key>Comment</key>
+				<string>disable pm981</string>
+				<key>Enabled</key>
+				<true/>
+				<key>Path</key>
+				<string>SSDT-DNVMe.aml</string>
+			</dict>
+			<dict>
+				<key>Comment</key>
 				<string>Disable discrete graphics card</string>
 				<key>Enabled</key>
 				<true/>
