@@ -1,11 +1,12 @@
 #!/bin/bash
-# Modified by Takoyaki White
 
-#sipInfo=("$(csrutil status)") // Don't need SIP to override
+sipInfo=("$(csrutil status)")
 systemVersion=($(sw_vers -productVersion | cut -d "." -f 2))
 systemLanguage=($(locale | grep LANG | sed s/'LANG='// | tr -d '"' | cut -d "." -f 1))
 
-#disableSIP="Need to disable SIP" // Don't need SIP to override
+disableSIP="Need to disable SIP"
+langRemoteMode="Remote Mode"
+langLocalMode="Local Mode"
 langDisplay="Display"
 langMonitors="Monitors"
 langIndex="Index"
@@ -28,9 +29,6 @@ langEnableOp1="(1) Enable HIDPI"
 langEnableOp2="(2) Enable HIDPI (with EDID)"
 langEnableOp3="(3) Disable HIDPI"
 
-langDisableOpt1="(1) Disable HIDPI on this monitor"
-langDisableOpt2="(2) Reset all settings to macOS default"
-
 langChooseRes="resolution config"
 langChooseResOp1="(1) 1920x1080 Display"
 langChooseResOp2="(2) 1920x1080 Display (use 1424x802, fix underscaled after sleep)"
@@ -39,8 +37,10 @@ langChooseResOp4="(4) 2560x1440 Display"
 langChooseResOp5="(5) 3000x2000 Display"
 langChooseResOpCustom="(6) Manual input resolution"
 
-if [[ "${systemLanguage}" == "zh_CN" ]]; then 
-    #disableSIP="需要关闭 SIP" // Don't need SIP to override
+if [[ "${systemLanguage}" == "zh_CN" ]]; then
+    disableSIP="需要关闭 SIP"
+    langRemoteMode="远程模式"
+    langLocalMode="本地模式"
     langDisplay="显示器"
     langMonitors="显示器"
     langIndex="序号"
@@ -51,8 +51,8 @@ if [[ "${systemLanguage}" == "zh_CN" ]]; then
     langInputChoice="输入你的选择"
     langEnterError="输入错误，再见了您嘞！"
     langBackingUp="正在备份(怎么还原请看说明)..."
-    langEnabled="开启成功，重启生效"
-    langDisabled="关闭成功，重启生效"
+    langEnabled="开启成功，重启或重新插拔显示器生效"
+    langDisabled="关闭成功，重启或重新插拔显示器生效"
     langEnabledLog="首次重启开机logo会变得巨大，之后就不会了"
     langCustomRes="输入想要开启的 HIDPI 分辨率，用空格隔开，就像这样：1680x945 1600x900 1440x810"
 
@@ -63,9 +63,6 @@ if [[ "${systemLanguage}" == "zh_CN" ]]; then
     langEnableOp2="(2) 开启HIDPI(同时注入EDID)"
     langEnableOp3="(3) 关闭HIDPI"
 
-    langDisableOpt1="(1) 在此显示器上禁用 HIDPI"
-    langDisableOpt2="(2) 还原所有设置至 macOS 默认"
-
     langChooseRes="选择分辨率配置"
     langChooseResOp1="(1) 1920x1080 显示屏"
     langChooseResOp2="(2) 1920x1080 显示屏 (使用 1424x802 分辨率，修复睡眠唤醒后的屏幕缩小问题)"
@@ -75,23 +72,29 @@ if [[ "${systemLanguage}" == "zh_CN" ]]; then
     langChooseResOpCustom="(6) 手动输入分辨率"
 fi
 
-downloadHost="https://raw.githubusercontent.com/xzhih/one-key-hidpi/master"
+downloadHost="https://raw.githubusercontent.com/ivan19871002/one-key-hidpi/master"
 # downloadHost="https://raw.githubusercontent.com/xzhih/one-key-hidpi/dev"
 # downloadHost="http://127.0.0.1:8080"
 
 shellDir="$(dirname $0)"
 
 if [ -d "${shellDir}/displayIcons" ];then
+    echo $langLocalMode
     downloadHost="file://${shellDir}"
+else
+    echo $langRemoteMode
 fi
 
-# Don't need SIP to override
-#if [[ "${sipInfo}" == *"Filesystem Protections: disabled"* ]] || [[ "$(awk '{print $5}' <<< "${sipInfo}")" == "disabled." ]] || [[ "$(awk '{print $5}' <<< "${sipInfo}")" == "disabled" ]]; then
-#    :
-#else
-#    echo "${disableSIP}";
-#    exit 1
-#fi
+# if [[ "${sipInfo}" == *"Filesystem Protections: disabled"* ]] || [[ "$(awk '{print $5}' <<< "${sipInfo}")" == "disabled." ]] || [[ "$(awk '{print $5}' <<< "${sipInfo}")" == "disabled" ]]; then
+#     :
+# else
+#     echo "${disableSIP}";
+#     exit 0
+# fi
+#
+# if [[ "${systemVersion}" -ge "15" ]]; then
+#     sudo mount -uw / && killall Finder
+# fi
 
 function get_edid()
 {
@@ -113,7 +116,7 @@ function get_edid()
         for display in "${gDisplayInf[@]}"
         do
             let index++
-            MonitorName=("$(echo ${display:190:24} | xxd -p -r)") 
+            MonitorName=("$(echo ${display:190:24} | xxd -p -r)")
             VendorID=${display:16:4}
             ProductID=${gMonitor:22:2}${gMonitor:20:2}
 
@@ -134,19 +137,19 @@ function get_edid()
 
         read -p "${langChooseDis}: " selection
         case $selection in
-            [[:digit:]]* ) 
+            [[:digit:]]* )
                 # Lower selection (arrays start at zero).
                 if ((selection < 1 || selection > index)); then
                     echo "${langEnterError}";
-                    exit 1
+                    exit 0
                 fi
                 let selection-=1
                 gMonitor=${gDisplayInf[$selection]}
                 ;;
 
-            * ) 
+            * )
                 echo "${langEnterError}";
-                exit 1
+                exit 0
                 ;;
         esac
     else
@@ -162,19 +165,19 @@ function get_edid()
     # echo ${Pid}
     # echo $EDID
 }
- 
+
 # init
 function init()
 {
 #
 cat << EEF
-  _    _   _____   _____    _____    _____ 
+  _    _   _____   _____    _____    _____
  | |  | | |_   _| |  __ \  |  __ \  |_   _|
- | |__| |   | |   | |  | | | |__) |   | |  
- |  __  |   | |   | |  | | |  ___/    | |  
- | |  | |  _| |_  | |__| | | |       _| |_ 
+ | |__| |   | |   | |  | | | |__) |   | |
+ |  __  |   | |   | |  | | |  ___/    | |
+ | |  | |  _| |_  | |__| | | |       _| |_
  |_|  |_| |_____| |_____/  |_|      |_____|
-        Modified by Takoyaki White                                  
+
 ============================================
 EEF
     #
@@ -184,7 +187,7 @@ EEF
     libDisplaysDir="/Library/Displays"
     thatDir="${libDisplaysDir}/Contents/Resources/Overrides"
     Overrides="\/Library\/Displays\/Contents\/Resources\/Overrides"
-    
+
     DICON="com\.apple\.cinema-display"
     imacicon=${Overrides}"\/DisplayVendorID\-610\/DisplayProductID\-a032\.tiff"
     mbpicon=${Overrides}"\/DisplayVendorID\-610\/DisplayProductID\-a030\-e1e1df\.tiff"
@@ -192,8 +195,13 @@ EEF
     lgicon=${Overrides}"\/DisplayVendorID\-1e6d\/DisplayProductID\-5b11\.tiff"
     proxdricon=${Overrides}"\/DisplayVendorID\-610\/DisplayProductID\-ae2f\_Landscape\.tiff"
 
-    if [[ ! -d ${thatDir}/HIDPI ]]; then
-        sudo mkdir -p ${thatDir}/HIDPI
+    if [[ ! -d ${thatDir}/HIDPI/backup ]]; then
+        echo "${langBackingUp}"
+        sudo mkdir -p ${thatDir}/HIDPI/backup
+        sudo cp ${thatDir}/Icons.plist ${thatDir}/HIDPI/backup/
+        if [[ -d ${thatDir}/DisplayVendorID-${Vid} ]]; then
+            sudo cp -r ${thatDir}/DisplayVendorID-${Vid} ${thatDir}/HIDPI/backup/
+        fi
     fi
 
     generate_restore_cmd
@@ -226,17 +234,17 @@ function get_edid()
         echo '------------------------------------'
         read -p "Choose the display: " selection
         case $selection in
-            [[:digit:]]* ) 
+            [[:digit:]]* )
                 if ((selection < 1 || selection > index)); then
                     echo "Enter error, bye";
-                    exit 1
+                    exit 0
                 fi
                 let selection-=1
                 gMonitor=${gDisplayInf[$selection]}
                 ;;
-            * ) 
+            * )
                 echo "Enter error, bye";
-                exit 1
+                exit 0
                 ;;
         esac
     else
@@ -252,26 +260,13 @@ function get_edid()
 
 get_edid
 
-rootPath="../../../../../.."
+if [[ -d ../DisplayVendorID-${Vid} ]]; then
+    rm -rf ../DisplayVendorID-${Vid} 
+fi
 
-echo ""
-echo "(1) Disable HIDPI on this monitor"
-echo "(2) Reset all settings to macOS default"
-echo ""
-
-read -p "Enter your choice [1~2]: " input
-case ${input} in
-    1) ${rootPath}/usr/libexec/plistbuddy -c "Delete :vendors:${Vid}:products:${Pid}" ../Icons.plist
-    ;;
-    2) rm -rf ${rootPath}/Library/Displays
-    ;;
-    *) 
-
-    echo "Enter error, bye";
-    exit 1
-    ;;
-esac
-
+rm -rf ../Icons.plist
+cp -r ./backup/* ../
+rm -rf ./disable
 echo "HIDPI Disabled"
 CCC
 
@@ -318,7 +313,7 @@ case ${logo} in
         ;;
     4) Picon=${lgicon}
         RP=("11" "47" "202" "114")
-        cp ${$thatDir}/DisplayVendorID-1e6d/DisplayProductID-5b11.icns ${thisDir}/tmp/DisplayVendorID-${Vid}/DisplayProductID-${Pid}.icns
+        cp ${thatDir}/DisplayVendorID-1e6d/DisplayProductID-5b11.icns ${thisDir}/tmp/DisplayVendorID-${Vid}/DisplayProductID-${Pid}.icns
         ;;
     5) Picon=${proxdricon}
         RP=("5" "45" "216" "121")
@@ -333,9 +328,9 @@ case ${logo} in
     *)
 
     echo "${langEnterError}";
-    exit 1
+    exit 0
     ;;
-esac 
+esac
 
 if [[ ${Picon} ]]; then
     DICON=${Overrides}"\/DisplayVendorID\-${Vid}\/DisplayProductID\-${Pid}\.icns"
@@ -358,7 +353,7 @@ function main()
     dpiFile=${thisDir}/tmp/DisplayVendorID-${Vid}/DisplayProductID-${Pid}
     sudo chmod -R 777 ${thisDir}/tmp/
 
-# 
+#
 cat > "${dpiFile}" <<-\CCC
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -421,7 +416,7 @@ case ${res} in
     ;;
     *)
     echo "${langEnterError}";
-    exit 1
+    exit 0
     ;;
 esac
 
@@ -528,7 +523,7 @@ done
 # enable
 function enable_hidpi()
 {
-    choose_icon
+    #choose_icon
     main
     sed -i "" "/.*IODisplayEDID/d" ${dpiFile}
     sed -i "" "/.*EDid/d" ${dpiFile}
@@ -538,7 +533,7 @@ function enable_hidpi()
 # patch
 function enable_hidpi_with_patch()
 {
-    choose_icon
+    #choose_icon
     main
 
     version=${EDID:38:2}
@@ -555,24 +550,13 @@ function enable_hidpi_with_patch()
 # disable
 function disable()
 {
-    echo ""
-    echo "${langDisableOpt1}"
-    echo "${langDisableOpt2}"
-    echo ""
+    if [[ -d ${thatDir}/DisplayVendorID-${Vid} ]]; then
+        sudo rm -rf ${thatDir}/DisplayVendorID-${Vid} 
+    fi
 
-    read -p "${langInputChoice} [1~2]: " input
-    case ${input} in
-        1) sudo /usr/libexec/plistbuddy -c "Delete :vendors:${Vid}:products:${Pid}" ${thatDir}/Icons.plist
-        ;;
-        2) sudo rm -rf ${libDisplaysDir}
-        ;;
-        *) 
-
-        echo "${langEnterError}";
-        exit 1
-        ;;
-    esac 
-
+    sudo rm -rf ${thatDir}/Icons.plist
+    sudo cp -r ${thatDir}/HIDPI/backup/* ${thatDir}/
+    sudo rm -rf ${thatDir}/HIDPI/disable
     echo "${langDisabled}"
 }
 
@@ -595,12 +579,12 @@ case ${input} in
     ;;
     3) disable
     ;;
-    *) 
+    *)
 
     echo "${langEnterError}";
-    exit 1
+    exit 0
     ;;
-esac 
+esac
 }
 
 start
