@@ -26,6 +26,10 @@ sudo kextload -v /Volumes/USB/HoRNDIS.kext
 ```
 * (possibly) If your laptop came with a PM981 SSD, consider replacing it with a different one (Google Hackintosh compatibility) or install macOS on a separate (M.2 SATA) SSD. There's known issues with the PM981 and macOS. This is currently 'fixed' with the NVMeFix kext.
 
+* My Xiaomi air 13.3 2019 , pm981 always crash with NVMeFix, so I block it with oc.
+
+* With itlwm , I only use wifi ,and remove ethernet . So I found 802.1x is ok.
+
 ### What is Working?
 * Native CPU Power Management
 * Sleep/Wake
